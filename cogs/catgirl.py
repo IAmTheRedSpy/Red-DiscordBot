@@ -111,15 +111,14 @@ class Catgirl_beta:
         randCatgirl = random.choice(self.catgirls)
         embed = discord.Embed()
         embed.colour = discord.Colour.red()
+        embed.title = "Catgirl"+randCatgirl[JSON_imageURLKey]
         embed.url = randCatgirl[JSON_imageURLKey]
         if JSON_isPixiv in randCatgirl and randCatgirl[JSON_isPixiv]:
-            embed.title = "Catgirl"+randCatgirl[JSON_pixivID]
             source = "[{}]({})".format("Original Source","http://www.pixiv.net/member_illust.php?mode=medium&illust_id="+randCatgirl[JSON_pixivID])
             embed.add_field(name="Pixiv",value=source)
             customFooter = "ID: " + randCatgirl[JSON_pixivID]
             embed.set_footer(text=customFooter)
         if JSON_isSeiga in randCatgirl and randCatgirl[JSON_isSeiga]:
-            embed.title = "Catgirl"+randCatgirl[JSON_seigaID]
             source = "[{}]({})".format("Original Source","http://seiga.nicovideo.jp/seiga/im"+randCatgirl[JSON_seigaID])
             embed.add_field(name="Nico Nico Seiga",value=source)
             customFooter = "ID: " + randCatgirl[JSON_seigaID]
@@ -147,7 +146,7 @@ class Catgirl_beta:
         randCatboy = random.choice(self.catboys)
         embed = discord.Embed()
         embed.colour = discord.Colour.red()
-        embed.title = "Catboy"
+        embed.title = "Catboy"+randCatboy[JSON_imageURLKey]
         embed.url = randCatboy[JSON_imageURLKey]
         if randCatboy[JSON_isPixiv]:
             source="[{}]({})".format("Original Source","http://www.pixiv.net/member_illust.php?mode=medium&illust_id="+randCatboy[JSON_pixivID])
@@ -197,7 +196,7 @@ class Catgirl_beta:
         randCatgirl = random.choice(self.catgirls)
         embed = discord.Embed()
         embed.colour = discord.Colour.red()
-        embed.title = "Catgirl"
+        embed.title = "Catgirl"+randCatgirl[JSON_imageURLKey]
         embed.url = randCatgirl[JSON_imageURLKey]
         if JSON_isPixiv in randCatgirl and randCatgirl[JSON_isPixiv]:
             source = "[{}]({})".format("Original Source","http://www.pixiv.net/member_illust.php?mode=medium&illust_id="+randCatgirl[JSON_pixivID])
@@ -245,7 +244,7 @@ class Catgirl_beta:
         randCatgirl = random.choice(self.catgirls_local)
         embed = discord.Embed()
         embed.colour = discord.Colour.red()
-        embed.title = "Catgirl"
+        embed.title = "Catgirl"+randCatgirl[JSON_imageURLKey]
         embed.url = randCatgirl[JSON_imageURLKey]
         if randCatgirl[JSON_isPixiv]:
             source="[{}]({})".format("Original Source","http://www.pixiv.net/member_illust.php?mode=medium&illust_id="+randCatgirl[JSON_pixivID])
@@ -275,7 +274,7 @@ class Catgirl_beta:
         randCatgirl = random.choice(self.catgirls_local_trap)
         embed = discord.Embed()
         embed.colour = discord.Colour.red()
-        embed.title = "Nekomimi"
+        embed.title = "Nekomimi"randCatgirl[JSON_imageURLKey]
         embed.url = randCatgirl[JSON_imageURLKey]
         if randCatgirl[JSON_isPixiv]:
             source="[{}]({})".format("Original Source","http://www.pixiv.net/member_illust.php?mode=medium&illust_id="+randCatgirl[JSON_pixivID])
@@ -304,7 +303,7 @@ class Catgirl_beta:
         randCatboy = random.choice(self.catboys)
         embed = discord.Embed()
         embed.colour = discord.Colour.red()
-        embed.title = "Catboy"
+        embed.title = "Catboy"randCatboy[JSON_imageURLKey]
         embed.url = randCatboy[JSON_imageURLKey]
         if randCatboy[JSON_isPixiv]:
             source="[{}]({})".format("Original Source","http://www.pixiv.net/member_illust.php?mode=medium&illust_id="+randCatboy[JSON_pixivID])
