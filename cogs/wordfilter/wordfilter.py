@@ -404,10 +404,9 @@ class WordFilter(commands.Cog): # pylint: disable=too-many-instance-attributes
 
         try:
             filteredMsg = _filterWord(filteredWords, filteredMsg)
-        except Exception as error: # pylint: disable=broad-except
+        except re.error as error: # pylint: disable=broad-except
             self.logger.error("Exception!")
             self.logger.error(error)
-            self.logger.info("Word: %s", word)
             self.logger.info("Filtered message: %s", filteredMsg)
 
         allFiltered = _isAllFiltered(filteredMsg)
