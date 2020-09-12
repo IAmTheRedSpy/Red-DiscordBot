@@ -1,10 +1,13 @@
-import itertools
 import datetime
-from typing import Sequence, Iterator, List, Optional
+import itertools
+from io import BytesIO
+from typing import Iterator, List, Optional, Sequence, SupportsInt, Union
 
 import discord
+from babel.lists import format_list as babel_list
+from babel.numbers import format_decimal
 
-from redbot.core.i18n import Translator
+from redbot.core.i18n import Translator, get_babel_locale, get_babel_regional_format
 
 _ = Translator("UtilsChatFormatting", __file__)
 
@@ -30,7 +33,7 @@ def warning(text: str) -> str:
         The new message.
 
     """
-    return "\N{WARNING SIGN} {}".format(text)
+    return "\N{WARNING SIGN}\N{VARIATION SELECTOR-16} {}".format(text)
 
 
 def info(text: str) -> str:
@@ -42,7 +45,7 @@ def info(text: str) -> str:
         The new message.
 
     """
-    return "\N{INFORMATION SOURCE} {}".format(text)
+    return "\N{INFORMATION SOURCE}\N{VARIATION SELECTOR-16} {}".format(text)
 
 
 def question(text: str) -> str:
@@ -54,16 +57,20 @@ def question(text: str) -> str:
         The new message.
 
     """
-    return "\N{BLACK QUESTION MARK ORNAMENT} {}".format(text)
+    return "\N{BLACK QUESTION MARK ORNAMENT}\N{VARIATION SELECTOR-16} {}".format(text)
 
 
-def bold(text: str) -> str:
+def bold(text: str, escape_formatting: bool = True) -> str:
     """Get the given text in bold.
+
+    Note: By default, this function will escape ``text`` prior to emboldening.
 
     Parameters
     ----------
     text : str
         The text to be marked up.
+    escape_formatting : `bool`, optional
+        Set to :code:`False` to not escape markdown formatting in the text.
 
     Returns
     -------
@@ -71,7 +78,7 @@ def bold(text: str) -> str:
         The marked up text.
 
     """
-    text = escape(text, formatting=True)
+    text = escape(text, formatting=escape_formatting)
     return "**{}**".format(text)
 
 
@@ -115,13 +122,17 @@ def inline(text: str) -> str:
         return "`{}`".format(text)
 
 
-def italics(text: str) -> str:
+def italics(text: str, escape_formatting: bool = True) -> str:
     """Get the given text in italics.
+
+    Note: By default, this function will escape ``text`` prior to italicising.
 
     Parameters
     ----------
     text : str
         The text to be marked up.
+    escape_formatting : `bool`, optional
+        Set to :code:`False` to not escape markdown formatting in the text.
 
     Returns
     -------
@@ -129,7 +140,7 @@ def italics(text: str) -> str:
         The marked up text.
 
     """
-    text = escape(text, formatting=True)
+    text = escape(text, formatting=escape_formatting)
     return "*{}*".format(text)
 
 
@@ -154,10 +165,10 @@ def bordered(*columns: Sequence[str], ascii_border: bool = False) -> str:
 
     """
     borders = {
-        "TL": "-" if ascii_border else "┌",  # Top-left
-        "TR": "-" if ascii_border else "┐",  # Top-right
-        "BL": "-" if ascii_border else "└",  # Bottom-left
-        "BR": "-" if ascii_border else "┘",  # Bottom-right
+        "TL": "+" if ascii_border else "┌",  # Top-left
+        "TR": "+" if ascii_border else "┐",  # Top-right
+        "BL": "+" if ascii_border else "└",  # Bottom-left
+        "BR": "+" if ascii_border else "┘",  # Bottom-right
         "HZ": "-" if ascii_border else "─",  # Horizontal
         "VT": "|" if ascii_border else "│",  # Vertical
     }
@@ -271,13 +282,17 @@ def pagify(
             yield in_text
 
 
-def strikethrough(text: str) -> str:
+def strikethrough(text: str, escape_formatting: bool = True) -> str:
     """Get the given text with a strikethrough.
+
+    Note: By default, this function will escape ``text`` prior to applying a strikethrough.
 
     Parameters
     ----------
     text : str
         The text to be marked up.
+    escape_formatting : `bool`, optional
+        Set to :code:`False` to not escape markdown formatting in the text.
 
     Returns
     -------
@@ -285,17 +300,21 @@ def strikethrough(text: str) -> str:
         The marked up text.
 
     """
-    text = escape(text, formatting=True)
+    text = escape(text, formatting=escape_formatting)
     return "~~{}~~".format(text)
 
 
-def underline(text: str) -> str:
+def underline(text: str, escape_formatting: bool = True) -> str:
     """Get the given text with an underline.
+
+    Note: By default, this function will escape ``text`` prior to underlining.
 
     Parameters
     ----------
     text : str
         The text to be marked up.
+    escape_formatting : `bool`, optional
+        Set to :code:`False` to not escape markdown formatting in the text.
 
     Returns
     -------
@@ -303,7 +322,7 @@ def underline(text: str) -> str:
         The marked up text.
 
     """
-    text = escape(text, formatting=True)
+    text = escape(text, formatting=escape_formatting)
     return "__{}__".format(text)
 
 
@@ -317,7 +336,7 @@ def escape(text: str, *, mass_mentions: bool = False, formatting: bool = False) 
     mass_mentions : `bool`, optional
         Set to :code:`True` to escape mass mentions in the text.
     formatting : `bool`, optional
-        Set to :code:`True` to escpae any markdown formatting in the text.
+        Set to :code:`True` to escape any markdown formatting in the text.
 
     Returns
     -------
@@ -329,25 +348,54 @@ def escape(text: str, *, mass_mentions: bool = False, formatting: bool = False) 
         text = text.replace("@everyone", "@\u200beveryone")
         text = text.replace("@here", "@\u200bhere")
     if formatting:
-        text = text.replace("`", "\\`").replace("*", "\\*").replace("_", "\\_").replace("~", "\\~")
+        text = discord.utils.escape_markdown(text)
     return text
 
 
-def humanize_list(items: Sequence[str]) -> str:
-    """Get comma-separted list, with the last element joined with *and*.
-
-    This uses an Oxford comma, because without one, items containing
-    the word *and* would make the output difficult to interpret.
+def humanize_list(
+    items: Sequence[str], *, locale: Optional[str] = None, style: str = "standard"
+) -> str:
+    """Get comma-separated list, with the last element joined with *and*.
 
     Parameters
     ----------
     items : Sequence[str]
         The items of the list to join together.
+    locale : Optional[str]
+        The locale to convert, if not specified it defaults to the bot's locale.
+    style : str
+        The style to format the list with.
+
+        Note: Not all styles are necessarily available in all locales,
+        see documentation of `babel.lists.format_list` for more details.
+
+        standard
+            A typical 'and' list for arbitrary placeholders.
+            eg. "January, February, and March"
+        standard-short
+             A short version of a 'and' list, suitable for use with short or
+             abbreviated placeholder values.
+             eg. "Jan., Feb., and Mar."
+        or
+            A typical 'or' list for arbitrary placeholders.
+            eg. "January, February, or March"
+        or-short
+            A short version of an 'or' list.
+            eg. "Jan., Feb., or Mar."
+        unit
+            A list suitable for wide units.
+            eg. "3 feet, 7 inches"
+        unit-short
+            A list suitable for short units
+            eg. "3 ft, 7 in"
+        unit-narrow
+            A list suitable for narrow units, where space on the screen is very limited.
+            eg. "3′ 7″"
 
     Raises
     ------
-    IndexError
-        An empty sequence was passed
+    ValueError
+        The locale does not support the specified style.
 
     Examples
     --------
@@ -361,14 +409,12 @@ def humanize_list(items: Sequence[str]) -> str:
         'One, Two, and Three'
         >>> humanize_list(['One'])
         'One'
+        >>> humanize_list(['omena', 'peruna', 'aplari'], style='or', locale='fi')
+        'omena, peruna tai aplari'
 
     """
-    if len(items) == 1:
-        return items[0]
-    try:
-        return ", ".join(items[:-1]) + _(", and ") + items[-1]
-    except IndexError:
-        raise IndexError("Cannot humanize empty sequence") from None
+
+    return babel_list(items, style=style, locale=get_babel_locale(locale))
 
 
 def format_perms_list(perms: discord.Permissions) -> str:
@@ -398,14 +444,36 @@ def format_perms_list(perms: discord.Permissions) -> str:
 
 
 def humanize_timedelta(
-    *, timedelta: Optional[datetime.timedelta] = None, seconds: Optional[int] = None
+    *, timedelta: Optional[datetime.timedelta] = None, seconds: Optional[SupportsInt] = None
 ) -> str:
     """
-    Get a human timedelta representation
+    Get a locale aware human timedelta representation.
+
+    This works with either a timedelta object or a number of seconds.
+
+    Fractional values will be omitted, and values less than 1 second
+    an empty string.
+
+    Parameters
+    ----------
+    timedelta: Optional[datetime.timedelta]
+        A timedelta object
+    seconds: Optional[SupportsInt]
+        A number of seconds
+
+    Returns
+    -------
+    str
+        A locale aware representation of the timedelta or seconds.
+
+    Raises
+    ------
+    ValueError
+        The function was called with neither a number of seconds nor a timedelta object
     """
 
     try:
-        obj = seconds or timedelta.total_seconds()
+        obj = seconds if seconds is not None else timedelta.total_seconds()
     except AttributeError:
         raise ValueError("You must provide either a timedelta or a number of seconds")
 
@@ -429,3 +497,49 @@ def humanize_timedelta(
             strings.append(f"{period_value} {unit}")
 
     return ", ".join(strings)
+
+
+def humanize_number(val: Union[int, float], override_locale=None) -> str:
+    """
+    Convert an int or float to a str with digit separators based on bot locale
+
+    Parameters
+    ----------
+    val : Union[int, float]
+        The int/float to be formatted.
+    override_locale: Optional[str]
+        A value to override bot's regional format.
+
+    Returns
+    -------
+    str
+        locale aware formatted number.
+    """
+    return format_decimal(val, locale=get_babel_regional_format(override_locale))
+
+
+def text_to_file(
+    text: str, filename: str = "file.txt", *, spoiler: bool = False, encoding: str = "utf-8"
+):
+    """Prepares text to be sent as a file on Discord, without character limit.
+
+    This writes text into a bytes object that can be used for the ``file`` or ``files`` parameters
+    of :meth:`discord.abc.Messageable.send`.
+
+    Parameters
+    ----------
+    text: str
+        The text to put in your file.
+    filename: str
+        The name of the file sent. Defaults to ``file.txt``.
+    spoiler: bool
+        Whether the attachment is a spoiler. Defaults to ``False``.
+
+    Returns
+    -------
+    discord.File
+        The file containing your text.
+
+    """
+    file = BytesIO(text.encode(encoding))
+    return discord.File(file, filename, spoiler=spoiler)
