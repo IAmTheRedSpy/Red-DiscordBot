@@ -283,6 +283,10 @@ class Tags(commands.Cog):
         if len(lookup) > 100:
             raise RuntimeError("Tag name is a maximum of 100 characters.")
 
+    async def isAllowedRole(self, ctx: Context, role: discord.Role):
+        tiers = await self.configV3.guild(ctx.guild).tiers()
+        return role.id in tiers.keys()
+
     @tag.group("settings")
     @commands.guild_only()
     @checks.mod_or_permissions()
@@ -381,7 +385,7 @@ class Tags(commands.Cog):
 
     @tag.command(name="add", aliases=["create"])
     @commands.guild_only()
-    @role_or_mod_or_permissions(role=ALLOWED_ROLE, manage_messages=True)
+    @role_or_mod_or_permissions(isAllowedRole(role), manage_messages=True)
     async def create(self, ctx: Context, name: str, *, content: str):
         """Creates a new tag owned by you.
         If you create a tag via private message then the tag is a generic
@@ -540,7 +544,7 @@ class Tags(commands.Cog):
 
     @tag.command(ignore_extra=False)
     @commands.guild_only()
-    @role_or_mod_or_permissions(role=ALLOWED_ROLE, administrator=True)
+    @role_or_mod_or_permissions(isAllowedRole(role), administrator=True)
     async def make(self, ctx):
         """Interactive makes a tag for you.
         This walks you through the process of creating a tag with
@@ -683,7 +687,7 @@ class Tags(commands.Cog):
         await ctx.send(embed=e)
 
     @tag.command()
-    @role_or_mod_or_permissions(role=ALLOWED_ROLE, manage_messages=True)
+    @role_or_mod_or_permissions(isAllowedRole(role), manage_messages=True)
     async def edit(self, ctx: Context, name: str, *, content: str):
         """Modifies an existing tag that you own.
         This command completely replaces the original text. If you edit
@@ -725,7 +729,7 @@ class Tags(commands.Cog):
 
     @tag.command(name="transfer")
     @commands.guild_only()
-    @role_or_mod_or_permissions(role=ALLOWED_ROLE, manage_messages=True)
+    @role_or_mod_or_permissions(isAllowedRole(role), manage_messages=True)
     async def transfer(self, ctx: Context, tag_name, user: discord.Member):
         """Transfer your tag to another user.
 
@@ -749,8 +753,8 @@ class Tags(commands.Cog):
 
         mod_roles = await self.bot.get_mod_roles(server)
         admin_roles = await self.bot.get_admin_roles(server)
-
-        sensei = discord.utils.get(ctx.message.guild.roles, name=ALLOWED_ROLE)
+        async with self.configV3.guild(ctx.guild).tiers() as tiers:
+            allowed_roles = tiers.keys()
 
         # Check and see if the user requesting the transfer is not the tag owner, or
         # is not a mod, or is not an admin.
@@ -765,7 +769,7 @@ class Tags(commands.Cog):
 
         # Check if the user to transfer to has permissions to create tags
         if (
-            sensei not in user.roles
+            not list(set(allowed_roles) & set(user.roles))
             and not list(set(admin_roles) & set(user.roles))
             and not list(set(mod_roles) & set(user.roles))
             and not await self.bot.is_owner(user)
@@ -814,7 +818,7 @@ class Tags(commands.Cog):
             )
 
     @tag.command(name="delete", aliases=["del", "remove", "rm"])
-    @role_or_mod_or_permissions(role=ALLOWED_ROLE, manage_messages=True)
+    @role_or_mod_or_permissions(isAllowedRole(role), manage_messages=True)
     async def remove(self, ctx: Context, *, name: str):
         """Removes a tag that you own.
         The tag owner can always delete their own tags. If someone requests
