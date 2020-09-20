@@ -5,7 +5,7 @@
 
 from .config import Config
 from .constants import *
-from .rolecheck import role_or_mod_or_permissions
+from .rolecheck import role_or_mod_or_permissions, role_or_permissions
 
 import csv
 import json
@@ -14,6 +14,7 @@ import datetime
 import discord
 import difflib
 from threading import Lock
+from collections import defaultdict
 
 import asyncio
 import discord
@@ -119,9 +120,29 @@ def tag_decoder(obj):
         return TagAlias(**obj)
     return obj
 
+def roles_or_mod_or_permissions(all_server_roles: dict = {}, **perms):
+    async def predicate(ctx):
+        server = ctx.guild
+        mod_roles = [r.name.lower() for r in await ctx.bot.get_mod_roles(server)]
+        admin_roles = [r.name.lower() for r in await ctx.bot.get_admin_roles(server)]
+        roles = mod_roles + admin_roles + list(all_server_roles[server])
+        return await role_or_permissions(ctx, lambda r: r.name.lower() in roles, **perms)
+    return commands.check(predicate)
 
 class Tags(commands.Cog):
     """The tag related commands."""
+    allowed_roles = defaultdict(lambda: set([]))
+
+    def setAllowedRoles(self, guild: "guild ID", roles: list):
+        self.allowed_roles[guild] = set(roles)
+    def addAllowedRole(self, guild: "guild ID", role):
+        self.allowed_roles[guild].add(role)
+    def removeAllowedRole(self, guild: "guild ID", role):
+        self.allowed_roles[guild].discard(role)
+    def getAllowedRoles(self):
+        # tiers = await self.configV3.guild(ctx.guild).tiers()
+        # return tiers.keys()
+        return list(self.allowed_roles)
 
     def __init__(self, bot):
         self.bot = bot
@@ -136,6 +157,9 @@ class Tags(commands.Cog):
         self.settings = Config("settings.json", cogname="tags")
         self.configV3 = ConfigV3.get_conf(self, identifier=5842647, force_registration=True)
         self.configV3.register_guild(**BASE)  # Register default (empty) settings.
+        for guildID, _ in self.configV3.all_guilds():
+            with self.configV3.guild(guildID).tiers() as tiers:
+                self.allowed_roles[guildID] = tiers.keys()
         self.lock = Lock()
 
     def get_database_location(self, message: discord.Message):
@@ -283,10 +307,6 @@ class Tags(commands.Cog):
         if len(lookup) > 100:
             raise RuntimeError("Tag name is a maximum of 100 characters.")
 
-    async def isAllowedRole(self, ctx: Context, role: discord.Role):
-        tiers = await self.configV3.guild(ctx.guild).tiers()
-        return role.id in tiers.keys()
-
     @tag.group("settings")
     @commands.guild_only()
     @checks.mod_or_permissions()
@@ -320,9 +340,11 @@ class Tags(commands.Cog):
             if num_tags == 0:
                 if str(role.id) in tiers.keys():
                     del tiers[str(role.id)]
+                    self.removeAllowedRole(ctx.guild, str(role.id))
                 await ctx.send(f"{role.name} will not be allowed to add tags")
             else:
                 tiers[role.id] = num_tags
+                self.addAllowedRole(ctx.guild, str(role.id))
                 await ctx.send(f"The tag limit for {role.name} was set to {num_tags}.")
 
     @settings.command(name="tiers")
@@ -385,7 +407,7 @@ class Tags(commands.Cog):
 
     @tag.command(name="add", aliases=["create"])
     @commands.guild_only()
-    @role_or_mod_or_permissions(isAllowedRole(role), manage_messages=True)
+    @roles_or_mod_or_permissions(roles=allowed_roles, manage_messages=True)
     async def create(self, ctx: Context, name: str, *, content: str):
         """Creates a new tag owned by you.
         If you create a tag via private message then the tag is a generic
@@ -544,7 +566,7 @@ class Tags(commands.Cog):
 
     @tag.command(ignore_extra=False)
     @commands.guild_only()
-    @role_or_mod_or_permissions(isAllowedRole(role), administrator=True)
+    @roles_or_mod_or_permissions(roles=allowed_roles, administrator=True)
     async def make(self, ctx):
         """Interactive makes a tag for you.
         This walks you through the process of creating a tag with
@@ -687,7 +709,7 @@ class Tags(commands.Cog):
         await ctx.send(embed=e)
 
     @tag.command()
-    @role_or_mod_or_permissions(isAllowedRole(role), manage_messages=True)
+    @roles_or_mod_or_permissions(roles=allowed_roles, manage_messages=True)
     async def edit(self, ctx: Context, name: str, *, content: str):
         """Modifies an existing tag that you own.
         This command completely replaces the original text. If you edit
@@ -729,7 +751,7 @@ class Tags(commands.Cog):
 
     @tag.command(name="transfer")
     @commands.guild_only()
-    @role_or_mod_or_permissions(isAllowedRole(role), manage_messages=True)
+    @roles_or_mod_or_permissions(roles=allowed_roles, manage_messages=True)
     async def transfer(self, ctx: Context, tag_name, user: discord.Member):
         """Transfer your tag to another user.
 
@@ -753,8 +775,7 @@ class Tags(commands.Cog):
 
         mod_roles = await self.bot.get_mod_roles(server)
         admin_roles = await self.bot.get_admin_roles(server)
-        async with self.configV3.guild(ctx.guild).tiers() as tiers:
-            allowed_roles = tiers.keys()
+        allowed_server_roles = self.allowed_roles[server]
 
         # Check and see if the user requesting the transfer is not the tag owner, or
         # is not a mod, or is not an admin.
@@ -769,7 +790,7 @@ class Tags(commands.Cog):
 
         # Check if the user to transfer to has permissions to create tags
         if (
-            not list(set(allowed_roles) & set(user.roles))
+            not list(set(allowed_server_roles) & set(user.roles))
             and not list(set(admin_roles) & set(user.roles))
             and not list(set(mod_roles) & set(user.roles))
             and not await self.bot.is_owner(user)
@@ -818,7 +839,7 @@ class Tags(commands.Cog):
             )
 
     @tag.command(name="delete", aliases=["del", "remove", "rm"])
-    @role_or_mod_or_permissions(isAllowedRole(role), manage_messages=True)
+    @roles_or_mod_or_permissions(roles=allowed_roles, manage_messages=True)
     async def remove(self, ctx: Context, *, name: str):
         """Removes a tag that you own.
         The tag owner can always delete their own tags. If someone requests
