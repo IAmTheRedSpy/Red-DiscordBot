@@ -5,7 +5,7 @@
 
 from .config import Config
 from .constants import *
-from .rolecheck import role_or_mod_or_permissions, roles_or_mod_or_permissions
+from .rolecheck import roles_or_mod_or_permissions
 
 import csv
 import json
