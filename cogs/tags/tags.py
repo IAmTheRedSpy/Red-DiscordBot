@@ -5,7 +5,7 @@
 
 from .config import Config
 from .constants import *
-from .rolecheck import role_or_mod_or_permissions, role_or_permissions
+from .rolecheck import role_or_mod_or_permissions, roles_or_mod_or_permissions
 
 import csv
 import json
@@ -404,7 +404,7 @@ class Tags(commands.Cog):
 
     @tag.command(name="add", aliases=["create"])
     @commands.guild_only()
-    @roles_or_mod_or_permissions(roles=allowed_roles, manage_messages=True)
+    @roles_or_mod_or_permissions(allowed_roles=allowed_roles, manage_messages=True)
     async def create(self, ctx: Context, name: str, *, content: str):
         """Creates a new tag owned by you.
         If you create a tag via private message then the tag is a generic
@@ -563,7 +563,7 @@ class Tags(commands.Cog):
 
     @tag.command(ignore_extra=False)
     @commands.guild_only()
-    @roles_or_mod_or_permissions(roles=allowed_roles, administrator=True)
+    @roles_or_mod_or_permissions(allowed_roles=allowed_roles, administrator=True)
     async def make(self, ctx):
         """Interactive makes a tag for you.
         This walks you through the process of creating a tag with
@@ -706,7 +706,7 @@ class Tags(commands.Cog):
         await ctx.send(embed=e)
 
     @tag.command()
-    @roles_or_mod_or_permissions(roles=allowed_roles, manage_messages=True)
+    @roles_or_mod_or_permissions(allowed_roles=allowed_roles, manage_messages=True)
     async def edit(self, ctx: Context, name: str, *, content: str):
         """Modifies an existing tag that you own.
         This command completely replaces the original text. If you edit
@@ -748,7 +748,7 @@ class Tags(commands.Cog):
 
     @tag.command(name="transfer")
     @commands.guild_only()
-    @roles_or_mod_or_permissions(roles=allowed_roles, manage_messages=True)
+    @roles_or_mod_or_permissions(allowed_roles=allowed_roles, manage_messages=True)
     async def transfer(self, ctx: Context, tag_name, user: discord.Member):
         """Transfer your tag to another user.
 
@@ -836,7 +836,7 @@ class Tags(commands.Cog):
             )
 
     @tag.command(name="delete", aliases=["del", "remove", "rm"])
-    @roles_or_mod_or_permissions(roles=allowed_roles, manage_messages=True)
+    @roles_or_mod_or_permissions(allowed_roles=allowed_roles, manage_messages=True)
     async def remove(self, ctx: Context, *, name: str):
         """Removes a tag that you own.
         The tag owner can always delete their own tags. If someone requests
