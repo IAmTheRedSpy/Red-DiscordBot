@@ -157,10 +157,15 @@ class Tags(commands.Cog):
         self.settings = Config("settings.json", cogname="tags")
         self.configV3 = ConfigV3.get_conf(self, identifier=5842647, force_registration=True)
         self.configV3.register_guild(**BASE)  # Register default (empty) settings.
-        for guildID, _ in self.configV3.all_guilds():
-            with self.configV3.guild(guildID).tiers() as tiers:
-                self.allowed_roles[guildID] = tiers.keys()
         self.lock = Lock()
+        self.bot.loop.create_task(self.syncAllowedRoles())
+
+    async def syncAllowedRoles(self):
+        guildIds = await self.configV3.all_guilds()
+        for guildId in guildIds.keys():
+            guild = discord.utils.get(self.bot.guilds, id=guildId)
+            async with self.configV3.guild(guild).tiers() as tiers:
+                self.allowed_roles[guildId] = tiers.keys()
 
     def get_database_location(self, message: discord.Message):
         """Get the database of tags.
