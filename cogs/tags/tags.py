@@ -120,12 +120,15 @@ def tag_decoder(obj):
         return TagAlias(**obj)
     return obj
 
-def roles_or_mod_or_permissions(all_server_roles: dict = {}, **perms):
+def roles_or_mod_or_permissions(allowed_roles: dict={}, **perms):
     async def predicate(ctx):
         server = ctx.guild
+        server_roles = []
+        if server:
+            server_roles = allowed_roles.get(server.id, [])
         mod_roles = [r.name.lower() for r in await ctx.bot.get_mod_roles(server)]
         admin_roles = [r.name.lower() for r in await ctx.bot.get_admin_roles(server)]
-        roles = mod_roles + admin_roles + list(all_server_roles[server])
+        roles = mod_roles + admin_roles + server_roles
         return await role_or_permissions(ctx, lambda r: r.name.lower() in roles, **perms)
     return commands.check(predicate)
 
